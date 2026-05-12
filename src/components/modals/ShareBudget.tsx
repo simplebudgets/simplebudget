@@ -22,6 +22,18 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import { Html5Qrcode } from "html5-qrcode";
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
+import Divider from '@mui/material/Divider';
+import CircularProgress from '@mui/material/CircularProgress';
+
+interface SharedUser {
+    recordID: string;
+    sharedToID: string;
+    fullName: string | null;
+}
 
 export default function ShareBudget() {
     const open = useModalStore(s => s.shareBudget)
@@ -32,14 +44,14 @@ export default function ShareBudget() {
     const setSnackSev = useGlobalStore(s => s.setSnackBarSeverity);
     const setSnackOpen = useGlobalStore(s => s.setSnackBarOpen);
     const user = useGlobalStore(s => s.currentUser)
-    const budgetsArray = useTableStore(s => s.budgets)
     const currentBudgetDetails = useTableStore(s => s.currentBudgetAndMonth)
-    const setCurrentBudget = useTableStore(s => s.setCurrentBudgetAndMonth)
     const theme = useTheme();
     const bigger = useMediaQuery(theme.breakpoints.up('sm'));
     const [scanning, setScanning] = React.useState(false);
     const scannerRef = React.useRef<Html5Qrcode | null>(null);
     const scannerContainerId = 'qr-reader';
+    const [sharedUsers, setSharedUsers] = React.useState<SharedUser[]>([]);
+    const [loadingShared, setLoadingShared] = React.useState(false);
 
     const startScanner = async () => {
         setScanning(true);
@@ -85,8 +97,70 @@ export default function ShareBudget() {
             stopScanner();
             setShareToID('');
             setErrorText('');
+            setSharedUsers([]);
         }
     }, [open]);
+
+    // Fetch shared users when modal opens
+    React.useEffect(() => {
+        if (open && currentBudgetDetails?.budgetID) {
+            fetchSharedUsers();
+        }
+    }, [open, currentBudgetDetails?.budgetID]);
+
+    const fetchSharedUsers = async () => {
+        setLoadingShared(true);
+        await ensureSession();
+        const { data, error } = await supabase
+            .from('shared')
+            .select('recordID, sharedToID')
+            .eq('budgetID', currentBudgetDetails.budgetID);
+        if (error) {
+            console.error('fetchSharedUsers:', error.message);
+            setLoadingShared(false);
+            return;
+        }
+        if (!data || data.length === 0) {
+            setSharedUsers([]);
+            setLoadingShared(false);
+            return;
+        }
+        // Fetch user names for the shared user IDs
+        const userIDs = data.map((s: any) => s.sharedToID);
+        const { data: users, error: usersError } = await supabase
+            .from('users')
+            .select('recordID, fullName')
+            .in('recordID', userIDs);
+        if (usersError) {
+            console.error('fetchSharedUsers users:', usersError.message);
+        }
+        const userMap = new Map<string, string | null>();
+        if (users) {
+            users.forEach((u: any) => userMap.set(u.recordID, u.fullName));
+        }
+        setSharedUsers(data.map((s: any) => ({
+            recordID: s.recordID,
+            sharedToID: s.sharedToID,
+            fullName: userMap.get(s.sharedToID) ?? null,
+        })));
+        setLoadingShared(false);
+    };
+
+    const handleUnshare = async (shareRecordID: string) => {
+        await ensureSession();
+        const { error } = await supabase
+            .from('shared')
+            .delete()
+            .eq('recordID', shareRecordID);
+        if (error) {
+            setErrorText(error.message);
+            return;
+        }
+        setSharedUsers(prev => prev.filter(s => s.recordID !== shareRecordID));
+        setSnackSev('success');
+        setSnackText('User removed from shared budget');
+        setSnackOpen(true);
+    };
     const handleSubmit = async (event: any) => {
         event.preventDefault();
         setErrorText('')
@@ -114,7 +188,8 @@ export default function ShareBudget() {
         setSnackSev('success')
         setSnackText('Budget Shared Successfully')
         setSnackOpen(true)
-        setOpen(false)
+        setShareToID('')
+        fetchSharedUsers()
     }
     return (
         <>
@@ -167,6 +242,44 @@ export default function ShareBudget() {
                                     type="text"
                                     label="User ID to share with"
                                 />
+                            </Grid>
+                            <Grid size={12}>
+                                <Divider sx={{ my: 1 }} />
+                                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                                    Currently shared with
+                                </Typography>
+                                {loadingShared ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                                        <CircularProgress size={24} />
+                                    </Box>
+                                ) : sharedUsers.length === 0 ? (
+                                    <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                                        This budget is not shared with anyone yet.
+                                    </Typography>
+                                ) : (
+                                    <List dense disablePadding>
+                                        {sharedUsers.map((sharedUser) => (
+                                            <ListItem
+                                                key={sharedUser.recordID}
+                                                secondaryAction={
+                                                    <IconButton
+                                                        edge="end"
+                                                        aria-label="stop sharing"
+                                                        color="error"
+                                                        onClick={() => handleUnshare(sharedUser.recordID)}
+                                                    >
+                                                        <PersonRemoveIcon />
+                                                    </IconButton>
+                                                }
+                                            >
+                                                <ListItemText
+                                                    primary={sharedUser.fullName || 'Unknown User'}
+                                                    secondary={sharedUser.sharedToID}
+                                                />
+                                            </ListItem>
+                                        ))}
+                                    </List>
+                                )}
                             </Grid>
                         </Grid>
                     </DialogContent>

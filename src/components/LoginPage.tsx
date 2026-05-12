@@ -127,8 +127,8 @@ export default function LoginPage() {
                                         alt='logo'
                                         loading="lazy"
                                     />
-                                    <Typography sx={{ ml: 1 }}>simple</Typography>
-                                    <Typography variant="h6" align="left" >
+                                    <Typography variant="h5" color='textSecondary' sx={{ ml: 1, fontWeight: 100 }}>simple</Typography>
+                                    <Typography variant="h5" align="left" >
                                         Budget
                                     </Typography>
                                 </Stack>

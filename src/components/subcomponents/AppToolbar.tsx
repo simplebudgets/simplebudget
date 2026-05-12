@@ -26,7 +26,7 @@ export default function AppToolbar() {
                         alt='logo'
                         loading="lazy"
                     />
-                    <Typography sx={{ ml: 1 }}>simple</Typography>
+                    <Typography variant="h6" sx={{ ml: 1, fontWeight: 100 }}>simple</Typography>
                     <Typography variant="h6" align="left" sx={{ flexGrow: 1 }}>
                         Budget
                     </Typography>
