@@ -48,6 +48,9 @@ import AreYouSure from "./components/subcomponents/AreYouSure";
 import EditTransaction from "./components/modals/EditTransaction";
 import UpdatePrompt from "./components/subcomponents/UpdatePrompt";
 import { usePwaStore } from "./store/pwaStore";
+import { initOfflineSync } from "./lib/offlineSync";
+import { useOfflineStore } from "./store/offlineStore";
+import CloudOffIcon from '@mui/icons-material/CloudOff';
 
 const fabStyle = {
   position: 'fixed',
@@ -92,6 +95,14 @@ export default function App() {
   const loadingOpen = useGlobalStore(s => s.mainLoading)
   const setLoadingOpen = useGlobalStore(s => s.setMainLoading)
   const [addToHomePU, setAddToHomePU] = React.useState(false)
+  const isOnline = useOfflineStore(s => s.isOnline)
+  const offlinePendingCount = useOfflineStore(s => s.pendingCount)
+
+  // Initialize offline sync listeners
+  React.useEffect(() => {
+    const cleanup = initOfflineSync();
+    return cleanup;
+  }, []);
 
   const addToHomeClose = (event?: React.SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') { return }
@@ -252,6 +263,22 @@ export default function App() {
           onUpdate={() => { if (pwaUpdateSW) pwaUpdateSW(true); }}
           onDismiss={() => setNeedRefresh(false)}
         />
+        {/* Offline indicator */}
+        <Snackbar
+          open={!isOnline || offlinePendingCount > 0}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+          sx={{ mt: 7 }}
+        >
+          <Alert
+            severity={!isOnline ? 'warning' : 'info'}
+            icon={<CloudOffIcon />}
+            sx={{ width: '100%' }}
+          >
+            {!isOnline
+              ? `You're offline. ${offlinePendingCount > 0 ? `${offlinePendingCount} transaction(s) will sync when reconnected.` : 'Transactions will be saved locally.'}`
+              : `Syncing ${offlinePendingCount} offline transaction(s)...`}
+          </Alert>
+        </Snackbar>
       </ThemeProvider>
     </>
   );

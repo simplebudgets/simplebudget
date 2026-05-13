@@ -23,6 +23,7 @@ import InputAdornment from "@mui/material/InputAdornment";
 import AddIcon from "@mui/icons-material/Add";
 import { supabase } from "../../lib/supabase";
 import { ensureSession } from "../extras/ensureSession";
+import { insertTransactionWithOfflineSupport } from "../../lib/offlineSync";
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from "@mui/material/IconButton";
 import { useTheme } from "@mui/material/styles";
@@ -167,28 +168,27 @@ export default function AddTransaction() {
             })
 
             try {
+                let anyQueued = false;
                 for (const x of addTransactions) {
-                    let { error } = await supabase
-                        .from('transactions')
-                        .insert(x)
-                    if (error) {
-                        setErrorText(error.message)
+                    const result = await insertTransactionWithOfflineSupport(x);
+                    if (!result.success) {
+                        setErrorText(result.error || 'Failed to save transaction')
                         setLoadingOpen(false)
                         return
                     }
+                    if (result.queued) anyQueued = true;
                     setTransactionsArray((prevState: any[]) => [...prevState, x]);
                 }
+                setAddNewTransaction(false)
+                setLoadingOpen(false)
+                setSnackSev('success')
+                setSnackText(anyQueued ? 'Transactions saved offline — will sync when online!' : 'Transactions Added!')
+                setSnackOpen(true)
             } catch (err: any) {
                 setErrorText(err.message || 'Failed to save split transactions')
                 setLoadingOpen(false)
                 return
             }
-
-            setAddNewTransaction(false)
-            setLoadingOpen(false)
-            setSnackSev('success')
-            setSnackText('Transactions Added!')
-            setSnackOpen(true)
             return
         } //the typical un-split transaction
         let newTransaction = {
@@ -203,11 +203,9 @@ export default function AddTransaction() {
             transactionType: transactionType,
             creatorID: currentUserData.recordID,
         };
-        let { error } = await supabase
-            .from('transactions')
-            .insert(newTransaction)
-        if (error) {
-            setErrorText(error.message)
+        const result = await insertTransactionWithOfflineSupport(newTransaction);
+        if (!result.success) {
+            setErrorText(result.error || 'Failed to save transaction')
             setLoadingOpen(false)
             return
         }
@@ -216,7 +214,7 @@ export default function AddTransaction() {
         setAddNewTransaction(false)
         setLoadingOpen(false)
         setSnackSev('success')
-        setSnackText('Transaction Added!')
+        setSnackText(result.queued ? 'Transaction saved offline — will sync when online!' : 'Transaction Added!')
         setSnackOpen(true)
     }
     function addSplit() {
