@@ -211,38 +211,45 @@ export default function App() {
   async function supaRefresh() {
     // If offline, load from cache and skip network calls
     if (!navigator.onLine) {
-      try {
-        const cachedBudgets = JSON.parse(localStorage.getItem('cachedBudgets') || '[]');
-        if (cachedBudgets.length > 0) {
-          setBudgetArray(cachedBudgets);
-        }
-        // GrabBudgetData will also load from cache internally
-        const resolvedBudget = currentBudget;
-        if (resolvedBudget.budgetID) {
-          await grabBudgetData(resolvedBudget.budgetID, resolvedBudget.year, resolvedBudget.month);
-        }
-      } catch (e) {
-        console.warn('Failed to load cached data:', e);
-      }
-      setLoadingOpen(false)
+      loadFromCache();
       return
     }
     setLoadingOpen(true)
     try {
-      let allBudgets = await grabAllBudgets()
+      let allBudgets = await Promise.race([
+        grabAllBudgets(),
+        new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000))
+      ]);
+      // If we got null/undefined back, Supabase had a network error — fall back to cache
+      if (!allBudgets) {
+        loadFromCache();
+        return
+      }
       await setBudget(allBudgets)
     } catch (err) {
       console.error('supaRefresh failed (possibly offline):', err)
-      // Fallback: try loading from cache
-      try {
-        const cachedBudgets = JSON.parse(localStorage.getItem('cachedBudgets') || '[]');
-        if (cachedBudgets.length > 0) {
-          setBudgetArray(cachedBudgets);
-        }
-      } catch (e) { /* ignore */ }
+      loadFromCache();
     } finally {
       setLoadingOpen(false)
     }
+  }
+
+  function loadFromCache() {
+    try {
+      const cachedBudgets = JSON.parse(localStorage.getItem('cachedBudgets') || '[]');
+      if (cachedBudgets.length > 0) {
+        setBudgetArray(cachedBudgets);
+      }
+      const sections = JSON.parse(localStorage.getItem('cachedSections') || '[]');
+      const categories = JSON.parse(localStorage.getItem('cachedCategories') || '[]');
+      const transactions = JSON.parse(localStorage.getItem('cachedTransactions') || '[]');
+      setSectionArray(sections);
+      setCategoryArray(categories);
+      setTransactionArray(transactions);
+    } catch (e) {
+      console.warn('Failed to load cached data:', e);
+    }
+    setLoadingOpen(false)
   }
   return (
     <>

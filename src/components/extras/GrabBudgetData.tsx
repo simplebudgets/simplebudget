@@ -50,34 +50,52 @@ export default function useGrabBudgetData() {
         }
 
         try {
-            // Refresh user profile
-            await refreshUserProfile();
+            // Refresh user profile (non-critical, don't let it block)
+            refreshUserProfile().catch(() => { });
 
-            // Fetch sections
-            const allSections = await supaSections(budgetID, month, year);
+            // Fetch sections with timeout
+            const allSections = await Promise.race([
+                supaSections(budgetID, month, year),
+                new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000))
+            ]);
             if (!allSections || allSections.length === 0) {
-                setSections([]);
-                setCategories([]);
-                setTransactions([]);
-                cacheBudgetData([], [], []);
+                // Only set empty if we got a real response (not null from network error)
+                if (allSections !== null) {
+                    setSections([]);
+                    setCategories([]);
+                    setTransactions([]);
+                    cacheBudgetData([], [], []);
+                } else {
+                    loadCachedBudgetData();
+                }
                 return;
             }
             setSections(allSections);
 
-            // Fetch categories
-            const allCategories = await supaCategories(allSections.map(x => x.recordID));
+            // Fetch categories with timeout
+            const allCategories = await Promise.race([
+                supaCategories(allSections.map(x => x.recordID)),
+                new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000))
+            ]);
             if (!allCategories || allCategories.length === 0) {
-                setCategories([]);
-                setTransactions([]);
-                cacheBudgetData(allSections, [], []);
+                if (allCategories !== null) {
+                    setCategories([]);
+                    setTransactions([]);
+                    cacheBudgetData(allSections, [], []);
+                } else {
+                    loadCachedBudgetData();
+                }
                 return;
             }
             setCategories(allCategories);
 
             // Fetch transactions — both categorized and uncategorized
-            const [noCategoryTransactions, categorizedTransactions] = await Promise.all([
-                supaTransactions(budgetID),
-                supaTransactionsFromCategories(allCategories.map(x => x.recordID)),
+            const [noCategoryTransactions, categorizedTransactions] = await Promise.race([
+                Promise.all([
+                    supaTransactions(budgetID),
+                    supaTransactionsFromCategories(allCategories.map(x => x.recordID)),
+                ]),
+                new Promise<[null, null]>((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000))
             ]);
 
             const allTransactions = [
@@ -90,7 +108,7 @@ export default function useGrabBudgetData() {
             cacheBudgetData(allSections, allCategories, allTransactions);
         } catch (error) {
             console.error('Error fetching budget data:', error);
-            // Fallback to cache on network failure
+            // Fallback to cache on network failure or timeout
             loadCachedBudgetData();
         } finally {
             setLoadingOpen(false);
