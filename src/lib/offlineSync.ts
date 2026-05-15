@@ -1,17 +1,22 @@
 /**
  * Offline sync engine.
- * Listens for online/offline events and drains the pending queue when connectivity returns.
+ * Listens for online/offline events, performs periodic connectivity checks,
+ * and drains the pending queue when connectivity returns.
  */
 
-import { supabase } from './supabase';
+import { supabase, SUPABASE_URL, SUPABASE_KEY } from './supabase';
 import { getAll, dequeue, pendingCount, enqueue, PendingTransaction } from './offlineQueue';
 import { useOfflineStore } from '../store/offlineStore';
 import { ensureSession } from '../components/extras/ensureSession';
 
 let syncInProgress = false;
+let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
 /** How long to wait for a network request before assuming we're offline (ms) */
 const NETWORK_TIMEOUT = 8000;
+
+/** How often to verify connectivity with a real network request (ms) */
+const HEARTBEAT_INTERVAL = 30_000; // 30 seconds
 
 /** Race a promise against a timeout. Rejects with a timeout error if too slow. */
 function withTimeout<T>(promise: Promise<T> | PromiseLike<T>, ms: number): Promise<T> {
@@ -22,6 +27,72 @@ function withTimeout<T>(promise: Promise<T> | PromiseLike<T>, ms: number): Promi
             (err) => { clearTimeout(timer); reject(err); },
         );
     });
+}
+
+/**
+ * Performs a lightweight network check to verify actual internet connectivity.
+ * navigator.onLine only checks if there's a network adapter — it doesn't detect
+ * "lie-fi" (connected to WiFi but no internet). This pings Supabase's REST endpoint
+ * with a tiny request to confirm real connectivity.
+ */
+export async function verifyConnectivity(): Promise<boolean> {
+    // If the browser says we're offline, trust it immediately
+    if (!navigator.onLine) {
+        useOfflineStore.getState().setIsOnline(false);
+        return false;
+    }
+
+    try {
+        // Use a lightweight Supabase query (count of 0 rows) as a connectivity check.
+        // This hits the actual API endpoint so it detects lie-fi scenarios.
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/`,
+            {
+                method: 'HEAD',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                },
+                signal: controller.signal,
+            }
+        );
+        clearTimeout(timeout);
+
+        const online = response.ok || response.status === 400; // 400 means server responded
+        useOfflineStore.getState().setIsOnline(online);
+        if (online) {
+            useOfflineStore.getState().setLastVerifiedAt(Date.now());
+        }
+        return online;
+    } catch {
+        // Network error, timeout, or abort — we're effectively offline
+        useOfflineStore.getState().setIsOnline(false);
+        return false;
+    }
+}
+
+/** Start periodic heartbeat checks */
+function startHeartbeat(): void {
+    if (heartbeatInterval) return;
+    heartbeatInterval = setInterval(async () => {
+        const wasOnline = useOfflineStore.getState().isOnline;
+        const isNowOnline = await verifyConnectivity();
+
+        // If we just came back online, trigger a sync
+        if (!wasOnline && isNowOnline) {
+            syncPendingTransactions();
+        }
+    }, HEARTBEAT_INTERVAL);
+}
+
+/** Stop periodic heartbeat checks */
+function stopHeartbeat(): void {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+    }
 }
 
 /** Attempt to sync all pending transactions to Supabase */
@@ -132,23 +203,42 @@ async function syncSingleTransaction(transaction: Omit<PendingTransaction, '_que
     }
 }
 
-/** Initialize online/offline listeners and kick off initial sync */
+/** Initialize online/offline listeners, heartbeat, and kick off initial sync */
 export function initOfflineSync(): () => void {
     const handleOnline = () => {
-        useOfflineStore.getState().setIsOnline(true);
-        // Auto-sync when coming back online
-        syncPendingTransactions();
+        // Don't immediately trust navigator.onLine — verify with a real request
+        verifyConnectivity().then((reallyOnline) => {
+            if (reallyOnline) {
+                syncPendingTransactions();
+            }
+        });
     };
 
     const handleOffline = () => {
         useOfflineStore.getState().setIsOnline(false);
     };
 
+    // Also listen for visibility changes — when the app comes back to foreground,
+    // re-verify connectivity (important for mobile where the OS suspends the app)
+    const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+            verifyConnectivity().then((online) => {
+                if (online) {
+                    syncPendingTransactions();
+                }
+            });
+        }
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Set initial state
-    useOfflineStore.getState().setIsOnline(navigator.onLine);
+    // Set initial state with a real connectivity check
+    verifyConnectivity();
+
+    // Start periodic heartbeat
+    startHeartbeat();
 
     // Check for any pending items on startup
     pendingCount().then((count) => {
@@ -163,5 +253,7 @@ export function initOfflineSync(): () => void {
     return () => {
         window.removeEventListener('online', handleOnline);
         window.removeEventListener('offline', handleOffline);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        stopHeartbeat();
     };
 }

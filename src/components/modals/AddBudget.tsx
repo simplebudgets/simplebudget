@@ -22,6 +22,7 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
+import OfflineAlert, { useIsOffline } from "../extras/OfflineAlert";
 
 const DEFAULT_BUDGET_TEMPLATE: { sectionName: string; sectionType: string; categories: string[] }[] = [
     {
@@ -64,6 +65,7 @@ const DEFAULT_BUDGET_TEMPLATE: { sectionName: string; sectionType: string; categ
 export default function AddBudget() {
     const { grabBudgetData } = useGrabBudgetData();
     const setLoadingOpen = useGlobalStore(s => s.setMainLoading)
+    const offline = useIsOffline();
     const addNewBudget = useModalStore(s => s.addBudget);
     const setAddNewBudget = useModalStore(s => s.setAddBudget);
     const [budgetName, setBudgetName] = React.useState('');
@@ -184,6 +186,7 @@ export default function AddBudget() {
                     </DialogTitle>
                     <DialogContent dividers>
                         <Grid container spacing={2}>
+                            <OfflineAlert />
                             <Grid size={12}>
                                 <TextField
                                     autoFocus
@@ -209,7 +212,7 @@ export default function AddBudget() {
                     </DialogContent>
                     <Box sx={{ mx: 1, mt: 0.5 }}><Typography color='error'>{errorText}</Typography></Box>
                     <DialogActions>
-                        <Button fullWidth startIcon={<AddIcon />} variant='contained' type='submit'>Add Budget</Button>
+                        <Button fullWidth startIcon={<AddIcon />} variant='contained' type='submit' disabled={offline}>Add Budget</Button>
                     </DialogActions>
                 </Box>
             </Dialog>

@@ -15,6 +15,22 @@ export default function OfflineAlert() {
     );
 }
 
+/**
+ * A top-level offline banner for the main app layout.
+ * Shows a persistent warning when the user is offline.
+ */
+export function OfflineBanner() {
+    const isOnline = useOfflineStore(s => s.isOnline);
+    const pendingCount = useOfflineStore(s => s.pendingCount);
+    if (isOnline) return null;
+    return (
+        <Alert severity="warning" variant="filled" sx={{ borderRadius: 0, py: 0 }}>
+            You're offline — viewing cached data. Only "Add Transaction" is available.
+            {pendingCount > 0 && ` (${pendingCount} pending sync)`}
+        </Alert>
+    );
+}
+
 /** Hook that returns true when the app is effectively offline */
 export function useIsOffline(): boolean {
     return !useOfflineStore(s => s.isOnline);

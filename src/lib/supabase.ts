@@ -11,3 +11,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
         detectSessionInUrl: true,
     },
 });
+
+/** Exported for use in connectivity checks */
+export { SUPABASE_URL, SUPABASE_KEY };

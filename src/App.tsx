@@ -49,6 +49,7 @@ import EditTransaction from "./components/modals/EditTransaction";
 import UpdatePrompt from "./components/subcomponents/UpdatePrompt";
 import { usePwaStore } from "./store/pwaStore";
 import { initOfflineSync } from "./lib/offlineSync";
+import { OfflineBanner } from "./components/extras/OfflineAlert";
 
 const fabStyle = {
   position: 'fixed',
@@ -251,6 +252,7 @@ export default function App() {
     <>
       <ThemeProvider theme={actTheme}>
         <CssBaseline />
+        <OfflineBanner />
         <Box sx={{
           display: 'flex',
           minHeight: window.innerHeight,
