@@ -19,6 +19,7 @@ import SettingsPage from "./components/SettingsPage";
 // Auth pages can stay lazy — they require network anyway
 const LoginPage = lazy(() => import("./components/LoginPage"));
 const SignUpPage = lazy(() => import("./components/SignUpPage"));
+const SupabaseConfigPage = lazy(() => import("./components/SupabaseConfigPage"));
 const ErrorPage = lazy(() => import("./components/ErrorPage"));
 
 // Register service worker with update prompt
@@ -68,6 +69,7 @@ root.render(
                     </Route>
                     <Route path='login' element={<LoginPage />} />
                     <Route path='signup' element={<SignUpPage />} />
+                    <Route path='backend-config' element={<SupabaseConfigPage />} />
                 </Routes>
             </Suspense>
         </BrowserRouter>

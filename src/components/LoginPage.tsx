@@ -17,11 +17,13 @@ import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import { supabase } from "../lib/supabase";
+import { supabase, isCustomSupabaseConfig } from "../lib/supabase";
 import Backdrop from '@mui/material/Backdrop';
 import CircularProgress from '@mui/material/CircularProgress';
 import logo from "../logo.png";
 import Stack from "@mui/material/Stack";
+import Chip from '@mui/material/Chip';
+import StorageIcon from '@mui/icons-material/Storage';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -180,6 +182,18 @@ export default function LoginPage() {
                             <Grid size={12}>
                                 <Typography display='inline' variant='body2'>Don't have an account? </Typography>
                                 <Button size='small' onClick={handleRedirectSignIn}>Sign Up</Button>
+                            </Grid>
+                            <Grid size={12} sx={{ textAlign: 'center' }}>
+                                <Button
+                                    size='small'
+                                    startIcon={<StorageIcon />}
+                                    onClick={() => navigate('/backend-config')}
+                                >
+                                    Configure Backend
+                                </Button>
+                                {isCustomSupabaseConfig() && (
+                                    <Chip label="Custom backend" size="small" color="info" variant="outlined" sx={{ ml: 1 }} />
+                                )}
                             </Grid>
                         </Grid>
                     </Box>
