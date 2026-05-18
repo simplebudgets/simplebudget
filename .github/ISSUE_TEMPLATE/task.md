@@ -1,5 +1,3 @@
-<!-- .github/ISSUE_TEMPLATE/task.md -->
-
 ---
 name: Task
 about: Track internal cleanup, maintenance, or implementation work

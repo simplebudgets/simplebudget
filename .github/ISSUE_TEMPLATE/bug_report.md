@@ -1,5 +1,3 @@
-<!-- .github/ISSUE_TEMPLATE/bug_report.md -->
-
 ---
 name: Bug report
 about: Report something that is not working correctly
