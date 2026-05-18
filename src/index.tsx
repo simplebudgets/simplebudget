@@ -9,11 +9,14 @@ import Box from '@mui/material/Box';
 import { registerSW } from 'virtual:pwa-register';
 import { usePwaStore } from './store/pwaStore';
 
-// Lazy-loaded route components
-const BudgetPage = lazy(() => import("./components/BudgetPage"));
-const TransactionsPage = lazy(() => import("./components/TransactionsPage"));
-const AnalyticsPage = lazy(() => import("./components/AnalyticsPage"));
-const SettingsPage = lazy(() => import("./components/SettingsPage"));
+// Core route components loaded eagerly so they work offline without needing
+// the service worker to have cached their chunks individually.
+import BudgetPage from "./components/BudgetPage";
+import TransactionsPage from "./components/TransactionsPage";
+import AnalyticsPage from "./components/AnalyticsPage";
+import SettingsPage from "./components/SettingsPage";
+
+// Auth pages can stay lazy — they require network anyway
 const LoginPage = lazy(() => import("./components/LoginPage"));
 const SignUpPage = lazy(() => import("./components/SignUpPage"));
 const ErrorPage = lazy(() => import("./components/ErrorPage"));

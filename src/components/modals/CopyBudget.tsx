@@ -28,10 +28,12 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { supaCategories, supaSections } from "../extras/api_functions";
 import { v4 as uuidv4 } from "uuid";
+import OfflineAlert, { useIsOffline } from "../extras/OfflineAlert";
 
 export default function CopyBudget() {
     const [fromMonth, setFromMonth] = React.useState<Dayjs | null>(dayjs());
     const [toMonth, setToMonth] = React.useState<Dayjs | null>(dayjs().add(1, 'month'));
+    const offline = useIsOffline();
     const openCopyBudget = useModalStore(s => s.copyBudget)
     const setOpenCopyBudget = useModalStore(s => s.setCopyBudget)
     const currentBudget = useTableStore(s => s.currentBudgetAndMonth)
@@ -142,6 +144,7 @@ export default function CopyBudget() {
                     </DialogTitle>
                     <DialogContent dividers>
                         <Grid container spacing={2}>
+                            <OfflineAlert />
                             <Typography>This will copy all sections and categories from one month to another. </Typography>
                             <LocalizationProvider dateAdapter={AdapterDayjs}>
                                 <Grid size={12}>
@@ -181,7 +184,7 @@ export default function CopyBudget() {
                     </DialogContent>
                     <Box sx={{ mx: 1, mt: 0.5 }}><Typography color='error'>{errorText}</Typography></Box>
                     <DialogActions>
-                        <Button fullWidth startIcon={<SaveIcon />} variant='contained' type='submit'>Copy Data</Button>
+                        <Button fullWidth startIcon={<SaveIcon />} variant='contained' type='submit' disabled={offline}>Copy Data</Button>
                     </DialogActions>
                 </Box>
             </Dialog>

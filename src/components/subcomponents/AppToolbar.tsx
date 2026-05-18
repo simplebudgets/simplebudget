@@ -6,13 +6,23 @@ import logo from '../../logo.png'
 import { useGlobalStore } from "../../store/globalStore";
 import IconButton from "@mui/material/IconButton";
 import RefreshIcon from '@mui/icons-material/Refresh';
+import Chip from '@mui/material/Chip';
+import CloudOffIcon from '@mui/icons-material/CloudOff';
+import { useOfflineStore } from "../../store/offlineStore";
 
 export default function AppToolbar() {
     const currentTheme = useGlobalStore(s => s.themeAtom);
+    const isOnline = useOfflineStore(s => s.isOnline);
+    const pendingCount = useOfflineStore(s => s.pendingCount);
+    const isSyncing = useOfflineStore(s => s.isSyncing);
 
     async function handleRefresh() {
         window.location.reload();
     }
+
+    const offlineLabel = !isOnline
+        ? (pendingCount > 0 ? `Offline · ${pendingCount} pending` : 'Offline')
+        : (isSyncing ? `Syncing ${pendingCount}...` : '');
 
     return (
         <>
@@ -30,6 +40,16 @@ export default function AppToolbar() {
                     <Typography variant="h6" align="left" sx={{ flexGrow: 1 }}>
                         Budget
                     </Typography>
+                    {offlineLabel && (
+                        <Chip
+                            icon={<CloudOffIcon />}
+                            label={offlineLabel}
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                            sx={{ mr: 1 }}
+                        />
+                    )}
                     <IconButton
                         size='small'
                         onClick={handleRefresh}

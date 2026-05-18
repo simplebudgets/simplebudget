@@ -28,6 +28,7 @@ import ListItemText from '@mui/material/ListItemText';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import Divider from '@mui/material/Divider';
 import CircularProgress from '@mui/material/CircularProgress';
+import OfflineAlert, { useIsOffline } from "../extras/OfflineAlert";
 
 interface SharedUser {
     recordID: string;
@@ -38,6 +39,7 @@ interface SharedUser {
 export default function ShareBudget() {
     const open = useModalStore(s => s.shareBudget)
     const setOpen = useModalStore(s => s.setShareBudget)
+    const offline = useIsOffline();
     const [shareToID, setShareToID] = React.useState('')
     const [errorText, setErrorText] = React.useState('')
     const setSnackText = useGlobalStore(s => s.setSnackBarText);
@@ -205,6 +207,7 @@ export default function ShareBudget() {
                     </DialogTitle>
                     <DialogContent dividers>
                         <Grid container spacing={2}>
+                            <OfflineAlert />
                             <Grid size={12}>
                                 <Alert severity="warning">Warning!! Sharing your budget allows the other user to create, view, edit and delete categories, sections, and transactions. You can remove the sharing from this budget in the future, but you cannot undo their actions.</Alert>
                             </Grid>
@@ -285,7 +288,7 @@ export default function ShareBudget() {
                     </DialogContent>
                     <Box sx={{ mx: 1, mt: 0.5 }}><Typography color='error'>{errorText}</Typography></Box>
                     <DialogActions>
-                        <Button fullWidth startIcon={<ShareIcon />} type='submit' variant='contained'>Share My Budget</Button>
+                        <Button fullWidth startIcon={<ShareIcon />} type='submit' variant='contained' disabled={offline}>Share My Budget</Button>
                     </DialogActions>
                 </Box>
             </Dialog>

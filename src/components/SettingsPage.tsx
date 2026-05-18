@@ -33,10 +33,12 @@ import DialogTitle from '@mui/material/DialogTitle';
 import { QRCodeSVG } from 'qrcode.react';
 import ChangePassword from './modals/ChangePassword'
 import ExportToCSV from './modals/ExportToCSV'
+import { useIsOffline } from "./extras/OfflineAlert";
 
 export default function SettingsPage() {
     const setLoadingOpen = useGlobalStore(s => s.setMainLoading)
     const setExportToCSV = useModalStore(s => s.setExportToCSV)
+    const offline = useIsOffline();
     const sectionsArray = useTableStore(s => s.sections);
     const [slideCheck, setSlideCheck] = React.useState(false);
     const areYouSureOpen = useModalStore(s => s.areYouSure);
@@ -225,7 +227,7 @@ export default function SettingsPage() {
                             </ListItem>
                             <Divider />
                             <ListItem disablePadding>
-                                <ListItemButton onClick={() => setExportToCSV(true)}>
+                                <ListItemButton onClick={() => setExportToCSV(true)} disabled={offline}>
                                     <ListItemIcon>
                                         <FileDownloadIcon />
                                     </ListItemIcon>
@@ -234,7 +236,7 @@ export default function SettingsPage() {
                             </ListItem>
                             <Divider />
                             <ListItem disablePadding>
-                                <ListItemButton onClick={() => setShareBudgetOpen(true)}>
+                                <ListItemButton onClick={() => setShareBudgetOpen(true)} disabled={offline}>
                                     <ListItemIcon>
                                         <ShareIcon />
                                     </ListItemIcon>
@@ -243,7 +245,7 @@ export default function SettingsPage() {
                             </ListItem>
                             <Divider />
                             <ListItem disablePadding>
-                                <ListItemButton onClick={handleDoubleCheck}>
+                                <ListItemButton onClick={handleDoubleCheck} disabled={offline}>
                                     <ListItemIcon>
                                         <DeleteIcon />
                                     </ListItemIcon>
@@ -268,7 +270,7 @@ export default function SettingsPage() {
                             </ListItem>
                             <Divider />
                             <ListItem disablePadding>
-                                <ListItemButton onClick={() => setOpenChangePassword(true)}>
+                                <ListItemButton onClick={() => setOpenChangePassword(true)} disabled={offline}>
                                     <ListItemIcon>
                                         <LockResetIcon />
                                     </ListItemIcon>
@@ -277,7 +279,7 @@ export default function SettingsPage() {
                             </ListItem>
                             <Divider />
                             <ListItem disablePadding>
-                                <ListItemButton onClick={fnLogout}>
+                                <ListItemButton onClick={fnLogout} disabled={offline}>
                                     <ListItemIcon>
                                         <LogoutIcon />
                                     </ListItemIcon>

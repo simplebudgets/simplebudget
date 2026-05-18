@@ -47,6 +47,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import SaveIcon from '@mui/icons-material/Save';
+import { useIsOffline } from "./extras/OfflineAlert";
 
 const formatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -59,11 +60,13 @@ export default function BudgetPage() {
     const transactionsArray = useTableStore(s => s.transactions)
     const setOpenCopyBudget = useModalStore(s => s.setCopyBudget)
     const { balanceCategory, allocateRestOfBudget, promptDeleteCategory, deleteCategory, updateCategory } = useCategoryActions();
+    const offline = useIsOffline();
     const [sidebarAnchorEl, setSidebarAnchorEl] = React.useState<null | HTMLElement>(null);
     const sidebarMenuOpen = Boolean(sidebarAnchorEl);
     const [sidebarEditMode, setSidebarEditMode] = React.useState(false);
     const [sidebarEditName, setSidebarEditName] = React.useState('');
     const [sidebarEditAmount, setSidebarEditAmount] = React.useState(0);
+    const [sidebarNote, setSidebarNote] = React.useState('');
     const [pendingDelete, setPendingDelete] = React.useState(false);
     const [overBudgetExpanded, setOverBudgetExpanded] = React.useState(false);
     const areYouSureOpen = useModalStore(s => s.areYouSure);
@@ -216,8 +219,9 @@ export default function BudgetPage() {
         if (selectedCategory) {
             setSidebarEditName(selectedCategory.categoryName);
             setSidebarEditAmount(selectedCategory.amount);
+            setSidebarNote(selectedCategory.categoryNote || '');
         }
-    }, [selectedCategoryID, selectedCategory?.categoryName, selectedCategory?.amount]);
+    }, [selectedCategoryID, selectedCategory?.categoryName, selectedCategory?.amount, selectedCategory?.categoryNote]);
 
     function sumCat(idVal: string) {
         return categoryArray.filter(x => x.sectionID === idVal).reduce((accumulator, object) => {
@@ -287,8 +291,8 @@ export default function BudgetPage() {
                             </Box>
                             <Paper elevation={2} sx={{ borderRadius: 3, mt: 1, p: 1.5 }}>
                                 <Box display='flex' justifyContent='space-between' sx={{ mb: 0.5 }}>
-                                    <Typography variant='caption' color='text.secondary'>Planned</Typography>
-                                    <Typography variant='caption' color='text.secondary'>Actual</Typography>
+                                    <Typography variant='caption' color='text.secondary'>Planned Total</Typography>
+                                    <Typography variant='caption' color='text.secondary'>Tracked Total</Typography>
                                 </Box>
                                 <Box display='flex' justifyContent='space-between' alignItems='baseline'>
                                     <Typography variant='body2' color='text.secondary'>
@@ -377,7 +381,7 @@ export default function BudgetPage() {
                             <BudgetSection sectionID={row.recordID} key={row.recordID} />
                         )
                         )}
-                        <Button variant='outlined' color='secondary' startIcon={<PostAddIcon />} onClick={() => setAddNewSection(true)}>Add Section</Button>
+                        <Button variant='outlined' color='secondary' startIcon={<PostAddIcon />} onClick={() => setAddNewSection(true)} disabled={offline}>Add Section</Button>
                     </Stack>
                 </Box>
 
@@ -407,6 +411,7 @@ export default function BudgetPage() {
                                                     }} />
                                                 <Button size='small' fullWidth variant='contained' startIcon={<SaveIcon />}
                                                     sx={{ mt: 1 }}
+                                                    disabled={offline}
                                                     onClick={async () => {
                                                         const err = await updateCategory(sidebarEditName, sidebarEditAmount);
                                                         if (!err) setSidebarEditMode(false);
@@ -442,6 +447,29 @@ export default function BudgetPage() {
                                     variant="determinate"
                                     color={sidebarSpent > selectedCategory.amount ? 'error' : 'success'}
                                     value={Math.min((sidebarSpent / (selectedCategory.amount || 1)) * 100, 100)}
+                                />
+                            </Box>
+                            <Box sx={{ px: 1.5, pb: 1 }}>
+                                <TextField
+                                    fullWidth
+                                    multiline
+                                    minRows={2}
+                                    maxRows={6}
+                                    size="small"
+                                    value={sidebarNote}
+                                    onChange={(e) => setSidebarNote(e.target.value)}
+                                    onBlur={async () => {
+                                        if (sidebarNote !== (selectedCategory?.categoryNote || '')) {
+                                            await updateCategory(
+                                                selectedCategory.categoryName,
+                                                selectedCategory.amount,
+                                                sidebarNote
+                                            );
+                                        }
+                                    }}
+                                    label="Notes"
+                                    placeholder="Add notes for this category..."
+                                    disabled={offline}
                                 />
                             </Box>
                             <List dense sx={{ maxHeight: 400, overflow: 'auto' }}>
@@ -494,13 +522,13 @@ export default function BudgetPage() {
                 }}>
                     <EditIcon sx={{ mr: 1 }} />Edit Category
                 </MenuItem>
-                <MenuItem onClick={() => { setSidebarAnchorEl(null); balanceCategory(); }}>
+                <MenuItem onClick={() => { setSidebarAnchorEl(null); balanceCategory(); }} disabled={offline}>
                     <BalanceIcon sx={{ mr: 1 }} />Balance Category
                 </MenuItem>
-                <MenuItem onClick={() => { setSidebarAnchorEl(null); allocateRestOfBudget(); }}>
+                <MenuItem onClick={() => { setSidebarAnchorEl(null); allocateRestOfBudget(); }} disabled={offline}>
                     <AccountBalanceWalletIcon sx={{ mr: 1 }} />Allocate Rest of Budget
                 </MenuItem>
-                <MenuItem onClick={() => { setSidebarAnchorEl(null); setPendingDelete(true); promptDeleteCategory(); }}>
+                <MenuItem onClick={() => { setSidebarAnchorEl(null); setPendingDelete(true); promptDeleteCategory(); }} disabled={offline}>
                     <DeleteIcon sx={{ mr: 1 }} />Delete Category
                 </MenuItem>
             </Menu>
@@ -514,7 +542,7 @@ export default function BudgetPage() {
                 open={moreOpen}
                 onClose={closeOptions}
             >
-                <MenuItem onClick={copyBudgetClick}>
+                <MenuItem onClick={copyBudgetClick} disabled={offline}>
                     <CopyAllIcon sx={{ mr: 1 }} />
                     Copy budget outline
                 </MenuItem>

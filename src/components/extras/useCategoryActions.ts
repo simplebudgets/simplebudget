@@ -3,6 +3,7 @@ import { useModalStore } from "../../store/modalStore";
 import { useTableStore } from "../../store/tableStore";
 import { supabase } from "../../lib/supabase";
 import { ensureSession } from "./ensureSession";
+import { withNetworkTimeout } from "../../lib/networkUtils";
 import GlobalJS from "./GlobalJS";
 
 const formatter = new Intl.NumberFormat('en-US', {
@@ -34,25 +35,29 @@ export default function useCategoryActions() {
     async function balanceCategory(): Promise<string | null> {
         const categorySum = grabCategorySum(currentCategoryID);
         setLoadingOpen(true);
-        await ensureSession();
-        const { error } = await supabase
-            .from('categories')
-            .update({ amount: Math.abs(categorySum) })
-            .eq('recordID', currentCategoryID);
-        if (error) {
+        try {
+            await withNetworkTimeout(ensureSession());
+            const { error } = await withNetworkTimeout(
+                Promise.resolve(supabase.from('categories').update({ amount: Math.abs(categorySum) }).eq('recordID', currentCategoryID))
+            ) as { error: any };
+            if (error) {
+                setLoadingOpen(false);
+                return error.message;
+            }
+            setCategoryArray(categoryArray.map(obj =>
+                obj.recordID === currentCategoryID
+                    ? { ...obj, amount: Number(Math.abs(categorySum)) }
+                    : obj
+            ));
             setLoadingOpen(false);
-            return error.message;
+            setSnackSev('success');
+            setSnackText('Category Balanced!');
+            setSnackOpen(true);
+            return null;
+        } catch (err: any) {
+            setLoadingOpen(false);
+            return err.message || 'Network error — try again when online';
         }
-        setCategoryArray(categoryArray.map(obj =>
-            obj.recordID === currentCategoryID
-                ? { ...obj, amount: Number(Math.abs(categorySum)) }
-                : obj
-        ));
-        setLoadingOpen(false);
-        setSnackSev('success');
-        setSnackText('Category Balanced!');
-        setSnackOpen(true);
-        return null;
     }
 
     async function allocateRestOfBudget(): Promise<string | null> {
@@ -77,25 +82,29 @@ export default function useCategoryActions() {
         remaining = Math.round(Math.max(remaining, 0) * 100) / 100;
 
         setLoadingOpen(true);
-        await ensureSession();
-        const { error } = await supabase
-            .from('categories')
-            .update({ amount: remaining })
-            .eq('recordID', currentCategoryID);
-        if (error) {
+        try {
+            await withNetworkTimeout(ensureSession());
+            const { error } = await withNetworkTimeout(
+                Promise.resolve(supabase.from('categories').update({ amount: remaining }).eq('recordID', currentCategoryID))
+            ) as { error: any };
+            if (error) {
+                setLoadingOpen(false);
+                return error.message;
+            }
+            setCategoryArray(categoryArray.map(obj =>
+                obj.recordID === currentCategoryID
+                    ? { ...obj, amount: remaining }
+                    : obj
+            ));
             setLoadingOpen(false);
-            return error.message;
+            setSnackSev('success');
+            setSnackText('Allocated ' + formatter.format(remaining) + ' to this category');
+            setSnackOpen(true);
+            return null;
+        } catch (err: any) {
+            setLoadingOpen(false);
+            return err.message || 'Network error — try again when online';
         }
-        setCategoryArray(categoryArray.map(obj =>
-            obj.recordID === currentCategoryID
-                ? { ...obj, amount: remaining }
-                : obj
-        ));
-        setLoadingOpen(false);
-        setSnackSev('success');
-        setSnackText('Allocated ' + formatter.format(remaining) + ' to this category');
-        setSnackOpen(true);
-        return null;
     }
 
     function promptDeleteCategory() {
@@ -106,43 +115,63 @@ export default function useCategoryActions() {
 
     async function deleteCategory(): Promise<string | null> {
         setLoadingOpen(true);
-        await ensureSession();
-        await supabase.from('transactions').delete().eq('categoryID', currentCategoryID);
-        const { error } = await supabase.from('categories').delete().eq('recordID', currentCategoryID);
-        if (error) {
+        try {
+            await withNetworkTimeout(ensureSession());
+            await withNetworkTimeout(
+                Promise.resolve(supabase.from('transactions').delete().eq('categoryID', currentCategoryID))
+            );
+            const { error } = await withNetworkTimeout(
+                Promise.resolve(supabase.from('categories').delete().eq('recordID', currentCategoryID))
+            ) as { error: any };
+            if (error) {
+                setLoadingOpen(false);
+                return error.message;
+            }
+            setCategoryArray(categoryArray.filter(el => el.recordID !== currentCategoryID));
+            setTransactionsArray(transactionsArray.filter(el => el.categoryID !== currentCategoryID));
             setLoadingOpen(false);
-            return error.message;
+            setSnackSev('success');
+            setSnackText('Category deleted');
+            setSnackOpen(true);
+            return null;
+        } catch (err: any) {
+            setLoadingOpen(false);
+            return err.message || 'Network error — try again when online';
         }
-        setCategoryArray(categoryArray.filter(el => el.recordID !== currentCategoryID));
-        setTransactionsArray(transactionsArray.filter(el => el.categoryID !== currentCategoryID));
-        setLoadingOpen(false);
-        setSnackSev('success');
-        setSnackText('Category deleted');
-        setSnackOpen(true);
-        return null;
     }
 
-    async function updateCategory(name: string, amount: number): Promise<string | null> {
+    async function updateCategory(name: string, amount: number, categoryNote?: string): Promise<string | null> {
         setLoadingOpen(true);
-        await ensureSession();
-        const { error } = await supabase
-            .from('categories')
-            .update({ categoryName: name, amount: amount === null || (amount as any) === '' ? 0 : amount })
-            .eq('recordID', currentCategoryID);
-        if (error) {
+        try {
+            await withNetworkTimeout(ensureSession());
+            const updatePayload: any = {
+                categoryName: name,
+                amount: amount === null || (amount as any) === '' ? 0 : amount,
+            };
+            if (categoryNote !== undefined) {
+                updatePayload.categoryNote = categoryNote;
+            }
+            const { error } = await withNetworkTimeout(
+                Promise.resolve(supabase.from('categories').update(updatePayload).eq('recordID', currentCategoryID))
+            ) as { error: any };
+            if (error) {
+                setLoadingOpen(false);
+                return error.message;
+            }
+            setCategoryArray(categoryArray.map(obj =>
+                obj.recordID === currentCategoryID
+                    ? { ...obj, categoryName: name, amount: Number(amount), ...(categoryNote !== undefined && { categoryNote }) }
+                    : obj
+            ));
             setLoadingOpen(false);
-            return error.message;
+            setSnackSev('success');
+            setSnackText('Category updated!');
+            setSnackOpen(true);
+            return null;
+        } catch (err: any) {
+            setLoadingOpen(false);
+            return err.message || 'Network error — try again when online';
         }
-        setCategoryArray(categoryArray.map(obj =>
-            obj.recordID === currentCategoryID
-                ? { ...obj, categoryName: name, amount: Number(amount) }
-                : obj
-        ));
-        setLoadingOpen(false);
-        setSnackSev('success');
-        setSnackText('Category updated!');
-        setSnackOpen(true);
-        return null;
     }
 
     return {

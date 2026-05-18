@@ -16,14 +16,19 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import AddIcon from '@mui/icons-material/Add';
 import { supabase } from "../../lib/supabase";
 import { ensureSession } from "../extras/ensureSession";
+import { withNetworkTimeout } from "../../lib/networkUtils";
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from "@mui/material/IconButton";
 import Button from "@mui/material/Button";
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import OfflineAlert, { useIsOffline } from "../extras/OfflineAlert";
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 
 export default function AddSection() {
     const setLoadingOpen = useGlobalStore(s => s.setMainLoading)
+    const offline = useIsOffline();
     const addNewSection = useModalStore(s => s.addSection);
     const setAddNewSection = useModalStore(s => s.setAddSection);
     const [sectionName, setSectionName] = React.useState('');
@@ -61,29 +66,34 @@ export default function AddSection() {
         setErrorText('')
         if (verifyInputs()) {
             setLoadingOpen(true)
-            await ensureSession();
-            let newSection = {
-                recordID: uuidv4(),
-                budgetID: currentBudget.budgetID,
-                sectionName: sectionName,
-                sectionType: sectionType,
-                sectionYear: currentBudget.year,
-                sectionMonth: currentBudget.month,
-            };
-            let { error } = await supabase
-                .from('sections')
-                .insert(newSection)
-            if (error) {
+            try {
+                await withNetworkTimeout(ensureSession());
+                let newSection = {
+                    recordID: uuidv4(),
+                    budgetID: currentBudget.budgetID,
+                    sectionName: sectionName,
+                    sectionType: sectionType,
+                    sectionYear: currentBudget.year,
+                    sectionMonth: currentBudget.month,
+                };
+                let { error } = await withNetworkTimeout(
+                    Promise.resolve(supabase.from('sections').insert(newSection))
+                ) as { error: any };
+                if (error) {
+                    setLoadingOpen(false)
+                    setErrorText(error.message)
+                    return
+                }
+                setSectionArray(prevState => [...prevState, newSection]);
+                setAddNewSection(false)
                 setLoadingOpen(false)
-                setErrorText(error.message)
-                return
+                setSnackSev('success')
+                setSnackText('Section Added!')
+                setSnackOpen(true)
+            } catch (err: any) {
+                setLoadingOpen(false)
+                setErrorText(err.message || 'Network error — try again when online')
             }
-            setSectionArray(prevState => [...prevState, newSection]);
-            setAddNewSection(false)
-            setLoadingOpen(false)
-            setSnackSev('success')
-            setSnackText('Section Added!')
-            setSnackOpen(true)
         }
     }
     React.useEffect(() => {
@@ -106,16 +116,17 @@ export default function AddSection() {
                     </DialogTitle>
                     <DialogContent dividers>
                         <Grid container spacing={2}>
+                            <OfflineAlert />
                             <Grid size={12}>
                                 <ToggleButtonGroup
-                                    color="success"
+                                    color={sectionType === 'income' ? 'success' : 'warning'}
                                     value={sectionType}
                                     fullWidth
                                     exclusive
                                     onChange={handleTypeChange}
                                 >
-                                    <ToggleButton value="income">Income</ToggleButton>
-                                    <ToggleButton value="expense">Expense</ToggleButton>
+                                    <ToggleButton value="income"><TrendingUpIcon sx={{ mr: 0.5 }} /> Income</ToggleButton>
+                                    <ToggleButton value="expense"><TrendingDownIcon sx={{ mr: 0.5 }} /> Expense</ToggleButton>
                                 </ToggleButtonGroup>
                             </Grid>
                             <Grid size={12}>
@@ -132,7 +143,7 @@ export default function AddSection() {
                     </DialogContent>
                     <Box sx={{ mx: 1, mt: 0.5 }}><Typography color='error'>{errorText}</Typography></Box>
                     <DialogActions>
-                        <Button fullWidth startIcon={<AddIcon />} type='submit' variant='contained'>Add Section</Button>
+                        <Button fullWidth startIcon={<AddIcon />} type='submit' variant='contained' disabled={offline}>Add Section</Button>
                     </DialogActions>
                 </Box>
             </Dialog>

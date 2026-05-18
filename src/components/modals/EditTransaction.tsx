@@ -24,6 +24,7 @@ import ToggleButton from "@mui/material/ToggleButton";
 import InputAdornment from "@mui/material/InputAdornment";
 import { supabase } from "../../lib/supabase";
 import { ensureSession } from "../extras/ensureSession";
+import { withNetworkTimeout } from "../../lib/networkUtils";
 import SaveIcon from "@mui/icons-material/Save";
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from "@mui/material/IconButton";
@@ -34,7 +35,10 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import MenuItem from "@mui/material/MenuItem";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Menu from "@mui/material/Menu";
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import { styled, lighten, darken } from '@mui/system';
+import OfflineAlert, { useIsOffline } from "../extras/OfflineAlert";
 
 const GroupHeader = styled('div')(({ theme }) => ({
     position: 'sticky',
@@ -58,6 +62,7 @@ const formatter = new Intl.NumberFormat('en-US', {
 
 export default function EditTransaction() {
     const setLoadingOpen = useGlobalStore(s => s.setMainLoading)
+    const offline = useIsOffline();
     const openEditTransaction = useModalStore(s => s.editTransaction);
     const setOpenEditTransaction = useModalStore(s => s.setEditTransaction);
     const currentTransactionID = useModalStore(s => s.currentTransaction)
@@ -148,25 +153,29 @@ export default function EditTransaction() {
             return
         }
         setLoadingOpen(true)
-        await ensureSession();
-        let { error } = await supabase
-            .from('transactions')
-            .delete()
-            .eq('recordID', currentTransactionID)
-        if (error) {
+        try {
+            await withNetworkTimeout(ensureSession());
+            let { error } = await withNetworkTimeout(
+                Promise.resolve(supabase.from('transactions').delete().eq('recordID', currentTransactionID))
+            ) as { error: any };
+            if (error) {
+                setLoadingOpen(false)
+                setErrorText(error.message)
+                return
+            }
+            let newArr = transactionsArray.filter(function (el) { return el.recordID !== currentTransactionID; });
+            setTransactionsArray(newArr);
+            setOpenEditTransaction(false)
             setLoadingOpen(false)
-            setErrorText(error.message)
-            return
+            setSnackSev('success')
+            setSnackText('Transaction deleted')
+            setSnackOpen(true)
+            setCheckAccept(false)
+            setDeleteTrans(false)
+        } catch (err: any) {
+            setLoadingOpen(false)
+            setErrorText(err.message || 'Network error — try again when online')
         }
-        let newArr = transactionsArray.filter(function (el) { return el.recordID !== currentTransactionID; });
-        setTransactionsArray(newArr);
-        setOpenEditTransaction(false)
-        setLoadingOpen(false)
-        setSnackSev('success')
-        setSnackText('Transaction deleted')
-        setSnackOpen(true)
-        setCheckAccept(false)
-        setDeleteTrans(false)
     }
     const verifyInputs = () => {
         if (transactionTitle === '' || transactionTitle === null) {
@@ -185,43 +194,47 @@ export default function EditTransaction() {
         console.log(transactionCategory)
         if (verifyInputs()) {
             setLoadingOpen(true)
-            await ensureSession();
-            let { error } = await supabase
-                .from('transactions')
-                .update({
-                    categoryID: transactionCategory === null ? null : transactionCategory.id,
-                    //@ts-ignore
-                    amount: transactionAmount === '' ? 0 : transactionAmount,
-                    title: transactionTitle,
-                    transactionDate: dayjs(transactionDate).valueOf() !== null ? dayjs(transactionDate).valueOf() : dayjs().valueOf(),
-                    transactionType: transactionType,
-                })
-                .eq('recordID', currentTransactionID)
-            if (error) {
-                setErrorText(error.message)
-                setLoadingOpen(false)
-                return
-            }
-            let newArr = transactionsArray.map(obj => {
-                if (obj.recordID === currentTransactionID) {
-                    return {
-                        ...obj,
+            try {
+                await withNetworkTimeout(ensureSession());
+                let { error } = await withNetworkTimeout(
+                    Promise.resolve(supabase.from('transactions').update({
                         categoryID: transactionCategory === null ? null : transactionCategory.id,
                         //@ts-ignore
                         amount: transactionAmount === '' ? 0 : transactionAmount,
                         title: transactionTitle,
-                        transactionDate: dayjs(transactionDate).valueOf() !== null ? dayjs(transactionDate).valueOf() : 0,
+                        transactionDate: dayjs(transactionDate).valueOf() !== null ? dayjs(transactionDate).valueOf() : dayjs().valueOf(),
                         transactionType: transactionType,
-                    };
+                    }).eq('recordID', currentTransactionID))
+                ) as { error: any };
+                if (error) {
+                    setErrorText(error.message)
+                    setLoadingOpen(false)
+                    return
                 }
-                return obj;
-            });
-            setTransactionsArray(newArr);
-            setOpenEditTransaction(false)
-            setLoadingOpen(false)
-            setSnackSev('success')
-            setSnackText('Transaction updated!')
-            setSnackOpen(true)
+                let newArr = transactionsArray.map(obj => {
+                    if (obj.recordID === currentTransactionID) {
+                        return {
+                            ...obj,
+                            categoryID: transactionCategory === null ? null : transactionCategory.id,
+                            //@ts-ignore
+                            amount: transactionAmount === '' ? 0 : transactionAmount,
+                            title: transactionTitle,
+                            transactionDate: dayjs(transactionDate).valueOf() !== null ? dayjs(transactionDate).valueOf() : 0,
+                            transactionType: transactionType,
+                        };
+                    }
+                    return obj;
+                });
+                setTransactionsArray(newArr);
+                setOpenEditTransaction(false)
+                setLoadingOpen(false)
+                setSnackSev('success')
+                setSnackText('Transaction updated!')
+                setSnackOpen(true)
+            } catch (err: any) {
+                setLoadingOpen(false)
+                setErrorText(err.message || 'Network error — try again when online')
+            }
         }
     }
     const handleFocus = (event: any) => {
@@ -267,9 +280,10 @@ export default function EditTransaction() {
                     </DialogTitle>
                     <DialogContent dividers>
                         <Grid container spacing={2}>
+                            <OfflineAlert />
                             <Grid size={12}>
                                 <ToggleButtonGroup
-                                    color="success"
+                                    color={transactionType === 'income' ? 'success' : 'warning'}
                                     value={transactionType}
                                     fullWidth
                                     onFocus={handleFocus}
@@ -277,8 +291,8 @@ export default function EditTransaction() {
                                     onChange={handleTypeChange}
                                     size='small'
                                 >
-                                    <ToggleButton value="income">Income</ToggleButton>
-                                    <ToggleButton value="expense">Expense</ToggleButton>
+                                    <ToggleButton value="income"><TrendingUpIcon sx={{ mr: 0.5 }} />Income</ToggleButton>
+                                    <ToggleButton value="expense"><TrendingDownIcon sx={{ mr: 0.5 }} />Expense</ToggleButton>
                                 </ToggleButtonGroup>
                             </Grid>
                             <Grid size={{ xs: 6, md: 12 }}>
@@ -358,7 +372,7 @@ export default function EditTransaction() {
                     </DialogContent>
                     <Box sx={{ mx: 1, mt: 0.5 }}><Typography color='error'>{errorText}</Typography></Box>
                     <DialogActions>
-                        <Button fullWidth startIcon={<SaveIcon />} variant='contained' type='submit'>Save Changes</Button>
+                        <Button fullWidth startIcon={<SaveIcon />} variant='contained' type='submit' disabled={offline}>Save Changes</Button>
                     </DialogActions>
                 </Box>
             </Dialog>
@@ -373,7 +387,7 @@ export default function EditTransaction() {
                 open={moreOpen}
                 onClose={handleClose}
             >
-                <MenuItem onClick={handleDoubleCheck}>
+                <MenuItem onClick={handleDoubleCheck} disabled={offline}>
                     <DeleteIcon />
                     Delete
                 </MenuItem>

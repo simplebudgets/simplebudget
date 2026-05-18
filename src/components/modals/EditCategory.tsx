@@ -38,6 +38,7 @@ import Fab from "@mui/material/Fab";
 import GlobalJS from "../extras/GlobalJS";
 import LinearProgress from '@mui/material/LinearProgress';
 import useCategoryActions from "../extras/useCategoryActions";
+import OfflineAlert, { useIsOffline } from "../extras/OfflineAlert";
 
 const formatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -48,8 +49,10 @@ const fabStyle = { position: 'fixed', bottom: 16, right: 16 };
 export default function EditCategory() {
     const openEditCategory = useModalStore(s => s.editCategory);
     const setOpenEditCategory = useModalStore(s => s.setEditCategory);
+    const offline = useIsOffline();
     const [categoryName, setCategoryName] = React.useState('');
     const [categoryAmount, setCategoryAmount] = React.useState(0);
+    const [categoryNote, setCategoryNote] = React.useState('');
     const [editMode, setEditMode] = React.useState(false);
     const transactionsArray = useTableStore(s => s.transactions);
     const currentCategoryID = useModalStore(s => s.currentCategory);
@@ -145,7 +148,7 @@ export default function EditCategory() {
             return;
         }
         const amt = (categoryAmount === null || (categoryAmount as any) === '') ? 0 : Number(categoryAmount);
-        const err = await updateCategory(categoryName, amt);
+        const err = await updateCategory(categoryName, amt, categoryNote);
         if (err) { setErrorText(err); return; }
         setOpenEditCategory(false);
     }
@@ -157,6 +160,7 @@ export default function EditCategory() {
         if (currentCategoryDetails) {
             setCategoryName(currentCategoryDetails.categoryName);
             setCategoryAmount(currentCategoryDetails.amount);
+            setCategoryNote(currentCategoryDetails.categoryNote || '');
             setEditMode(false);
             setCategorySum(grabCategorySum(currentCategoryID));
         }
@@ -242,11 +246,34 @@ export default function EditCategory() {
                                 </Stack>
                             </Grid>
                             <Box sx={{ mx: 1, mt: 0.5 }}><Typography color='error'>{errorText}</Typography></Box>
+                            <Grid size={12}>
+                                <TextField
+                                    fullWidth
+                                    multiline
+                                    minRows={2}
+                                    maxRows={6}
+                                    value={categoryNote}
+                                    onChange={(e: any) => setCategoryNote(e.target.value)}
+                                    onBlur={async () => {
+                                        if (categoryNote !== (currentCategoryDetails?.categoryNote || '')) {
+                                            await updateCategory(
+                                                currentCategoryDetails?.categoryName ?? categoryName,
+                                                currentCategoryDetails?.amount ?? categoryAmount,
+                                                categoryNote
+                                            );
+                                        }
+                                    }}
+                                    label="Notes"
+                                    placeholder="Add notes for this category..."
+                                    sx={{ mb: 1 }}
+                                    disabled={offline}
+                                />
+                            </Grid>
                             {editMode ?
                                 <Grid size={12}>
                                     <Grow in={editMode}>
                                         <DialogActions>
-                                            <Button fullWidth startIcon={<SaveIcon />} variant='contained' type='submit'>Save Changes</Button>
+                                            <Button fullWidth startIcon={<SaveIcon />} variant='contained' type='submit' disabled={offline}>Save Changes</Button>
                                         </DialogActions>
                                     </Grow>
                                 </Grid> : null}
@@ -303,13 +330,13 @@ export default function EditCategory() {
                 <MenuItem onClick={() => { setAnchorEl(null); setEditMode(!editMode); }}>
                     <EditIcon sx={{ mr: 1 }} />Edit Category
                 </MenuItem>
-                <MenuItem onClick={handleBalanceClick}>
+                <MenuItem onClick={handleBalanceClick} disabled={offline}>
                     <BalanceIcon sx={{ mr: 1 }} />Balance Category
                 </MenuItem>
-                <MenuItem onClick={handleAllocateClick}>
+                <MenuItem onClick={handleAllocateClick} disabled={offline}>
                     <AccountBalanceWalletIcon sx={{ mr: 1 }} />Allocate Rest of Budget
                 </MenuItem>
-                <MenuItem onClick={handleDeleteClick}>
+                <MenuItem onClick={handleDeleteClick} disabled={offline}>
                     <DeleteIcon sx={{ mr: 1 }} />Delete Category
                 </MenuItem>
             </Menu>

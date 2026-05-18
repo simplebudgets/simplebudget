@@ -17,6 +17,7 @@ import { useTableStore } from "../../store/tableStore";
 import SaveIcon from '@mui/icons-material/Save';
 import { supabase } from "../../lib/supabase";
 import { ensureSession } from "../extras/ensureSession";
+import { withNetworkTimeout } from "../../lib/networkUtils";
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from "@mui/material/IconButton";
 import { useTheme } from "@mui/material/styles";
@@ -28,9 +29,13 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ToggleButton from "@mui/material/ToggleButton";
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import OfflineAlert, { useIsOffline } from "../extras/OfflineAlert";
 
 export default function EditSection() {
     const setLoadingOpen = useGlobalStore(s => s.setMainLoading)
+    const offline = useIsOffline();
     const openEditSection = useModalStore(s => s.editSection);
     const setOpenEditSection = useModalStore(s => s.setEditSection);
     const transactionsArray = useTableStore(s => s.transactions)
@@ -107,36 +112,39 @@ export default function EditSection() {
             return
         }
         setLoadingOpen(true)
-        await ensureSession();
-        let catDelete = categoryArray.filter(x => x.sectionID === currentSectionID)
-        await deleteTransactions(catDelete)
+        try {
+            await withNetworkTimeout(ensureSession());
+            let catDelete = categoryArray.filter(x => x.sectionID === currentSectionID)
+            await deleteTransactions(catDelete)
 
-        let { data } = await supabase
-            .from('categories')
-            .delete()
-            .eq('sectionID', currentSectionID)
+            await withNetworkTimeout(
+                Promise.resolve(supabase.from('categories').delete().eq('sectionID', currentSectionID))
+            );
 
-        let { error } = await supabase
-            .from('sections')
-            .delete()
-            .eq('recordID', currentSectionID)
-        if (error) {
+            let { error } = await withNetworkTimeout(
+                Promise.resolve(supabase.from('sections').delete().eq('recordID', currentSectionID))
+            ) as { error: any };
+            if (error) {
+                setLoadingOpen(false)
+                setErrorText(error.message)
+                return
+            }
+            let newSec = sectionsArray.filter(function (el) { return el.recordID !== currentSectionID; });
+            let newCat = categoryArray.filter(function (el) { return el.sectionID !== currentSectionID; });
+            setSectionsArray(newSec)
+            setCategoryArray(newCat)
+
+            setOpenEditSection(false)
             setLoadingOpen(false)
-            setErrorText(error.message)
-            return
+            setSnackSev('success')
+            setSnackText('Section deleted')
+            setSnackOpen(true)
+            setCheckAccept(false)
+            setDeleteSection(false)
+        } catch (err: any) {
+            setLoadingOpen(false)
+            setErrorText(err.message || 'Network error — try again when online')
         }
-        let newSec = sectionsArray.filter(function (el) { return el.recordID !== currentSectionID; });
-        let newCat = categoryArray.filter(function (el) { return el.sectionID !== currentSectionID; });
-        setSectionsArray(newSec)
-        setCategoryArray(newCat)
-
-        setOpenEditSection(false)
-        setLoadingOpen(false)
-        setSnackSev('success')
-        setSnackText('Section deleted')
-        setSnackOpen(true)
-        setCheckAccept(false)
-        setDeleteSection(false)
     }
     const verifyInputs = () => {
         if (sectionName === '' || sectionName === null) {
@@ -150,35 +158,39 @@ export default function EditSection() {
         setErrorText('')
         if (verifyInputs()) {
             setLoadingOpen(true)
-            await ensureSession();
-            let { error } = await supabase
-                .from('sections')
-                .update({
-                    sectionName: sectionName,
-                    sectionType: sectionType,
-                })
-                .eq('recordID', currentSectionID)
-            if (error) {
-                setLoadingOpen(false)
-                setErrorText(error.message)
-                return
-            }
-            let newArr = sectionsArray.map(obj => {
-                if (obj.recordID === currentSectionID) {
-                    return {
-                        ...obj,
+            try {
+                await withNetworkTimeout(ensureSession());
+                let { error } = await withNetworkTimeout(
+                    Promise.resolve(supabase.from('sections').update({
                         sectionName: sectionName,
-                        sectionType: sectionType
-                    }
+                        sectionType: sectionType,
+                    }).eq('recordID', currentSectionID))
+                ) as { error: any };
+                if (error) {
+                    setLoadingOpen(false)
+                    setErrorText(error.message)
+                    return
                 }
-                return obj;
-            });
-            setLoadingOpen(false)
-            setSectionsArray(newArr);
-            setOpenEditSection(false)
-            setSnackSev('success')
-            setSnackText('Section updated!')
-            setSnackOpen(true)
+                let newArr = sectionsArray.map(obj => {
+                    if (obj.recordID === currentSectionID) {
+                        return {
+                            ...obj,
+                            sectionName: sectionName,
+                            sectionType: sectionType
+                        }
+                    }
+                    return obj;
+                });
+                setLoadingOpen(false)
+                setSectionsArray(newArr);
+                setOpenEditSection(false)
+                setSnackSev('success')
+                setSnackText('Section updated!')
+                setSnackOpen(true)
+            } catch (err: any) {
+                setLoadingOpen(false)
+                setErrorText(err.message || 'Network error — try again when online')
+            }
         }
     }
     const handleFocus = (event: any) => {
@@ -221,16 +233,17 @@ export default function EditSection() {
                     </DialogTitle>
                     <DialogContent dividers>
                         <Grid container spacing={2}>
+                            <OfflineAlert />
                             <Grid size={12}>
                                 <ToggleButtonGroup
-                                    color="success"
+                                    color={sectionType === 'income' ? 'success' : 'warning'}
                                     value={sectionType}
                                     fullWidth
                                     exclusive
                                     onChange={handleTypeChange}
                                 >
-                                    <ToggleButton value="income">Income</ToggleButton>
-                                    <ToggleButton value="expense">Expense</ToggleButton>
+                                    <ToggleButton value="income"><TrendingUpIcon sx={{ mr: 0.5 }} />Income</ToggleButton>
+                                    <ToggleButton value="expense"><TrendingDownIcon sx={{ mr: 0.5 }} />Expense</ToggleButton>
                                 </ToggleButtonGroup>
                             </Grid>
                             <Grid size={12}>
@@ -248,7 +261,7 @@ export default function EditSection() {
                     </DialogContent>
                     <Box sx={{ mx: 1, mt: 0.5 }}><Typography color='error'>{errorText}</Typography></Box>
                     <DialogActions>
-                        <Button fullWidth startIcon={<SaveIcon />} variant='contained' type='submit'>Save Changes</Button>
+                        <Button fullWidth startIcon={<SaveIcon />} variant='contained' type='submit' disabled={offline}>Save Changes</Button>
                     </DialogActions>
                 </Box>
             </Dialog>
@@ -263,7 +276,7 @@ export default function EditSection() {
                 open={moreOpen}
                 onClose={handleClose}
             >
-                <MenuItem onClick={handleDoubleCheck}>
+                <MenuItem onClick={handleDoubleCheck} disabled={offline}>
                     <DeleteIcon />
                     Delete
                 </MenuItem>

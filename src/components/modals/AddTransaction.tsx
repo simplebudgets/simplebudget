@@ -21,15 +21,17 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ToggleButton from "@mui/material/ToggleButton";
 import InputAdornment from "@mui/material/InputAdornment";
 import AddIcon from "@mui/icons-material/Add";
-import { supabase } from "../../lib/supabase";
-import { ensureSession } from "../extras/ensureSession";
+import { insertTransactionWithOfflineSupport } from "../../lib/offlineSync";
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from "@mui/material/IconButton";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { styled, lighten, darken } from '@mui/system';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import Alert from '@mui/material/Alert';
+import AltRouteIcon from '@mui/icons-material/AltRoute';
+import ReadMoreOutlinedIcon from '@mui/icons-material/ReadMoreOutlined';
 
 const GroupHeader = styled('div')(({ theme }) => ({
     position: 'sticky',
@@ -136,8 +138,7 @@ export default function AddTransaction() {
             return
         }
         setLoadingOpen(true)
-        // Refresh session in case the user has been idle (iOS kills timers)
-        await ensureSession();
+        // Session refresh happens in the background sync — no need to block here
         if (splitBool) {
             const splitTotal = splitArr.reduce((acc, obj) => acc + Number(obj.transAmount), 0);
             if (Math.abs(Number(transactionAmount) - splitTotal) > 0.01) {
@@ -168,27 +169,24 @@ export default function AddTransaction() {
 
             try {
                 for (const x of addTransactions) {
-                    let { error } = await supabase
-                        .from('transactions')
-                        .insert(x)
-                    if (error) {
-                        setErrorText(error.message)
+                    const result = await insertTransactionWithOfflineSupport(x);
+                    if (!result.success) {
+                        setErrorText(result.error || 'Failed to save transaction')
                         setLoadingOpen(false)
                         return
                     }
                     setTransactionsArray((prevState: any[]) => [...prevState, x]);
                 }
+                setAddNewTransaction(false)
+                setLoadingOpen(false)
+                setSnackSev('success')
+                setSnackText(navigator.onLine ? 'Transactions Added!' : 'Transactions saved offline — will sync when online!')
+                setSnackOpen(true)
             } catch (err: any) {
                 setErrorText(err.message || 'Failed to save split transactions')
                 setLoadingOpen(false)
                 return
             }
-
-            setAddNewTransaction(false)
-            setLoadingOpen(false)
-            setSnackSev('success')
-            setSnackText('Transactions Added!')
-            setSnackOpen(true)
             return
         } //the typical un-split transaction
         let newTransaction = {
@@ -203,11 +201,9 @@ export default function AddTransaction() {
             transactionType: transactionType,
             creatorID: currentUserData.recordID,
         };
-        let { error } = await supabase
-            .from('transactions')
-            .insert(newTransaction)
-        if (error) {
-            setErrorText(error.message)
+        const result = await insertTransactionWithOfflineSupport(newTransaction);
+        if (!result.success) {
+            setErrorText(result.error || 'Failed to save transaction')
             setLoadingOpen(false)
             return
         }
@@ -216,7 +212,7 @@ export default function AddTransaction() {
         setAddNewTransaction(false)
         setLoadingOpen(false)
         setSnackSev('success')
-        setSnackText('Transaction Added!')
+        setSnackText(navigator.onLine ? 'Transaction Added!' : 'Transaction saved offline — will sync when online!')
         setSnackOpen(true)
     }
     function addSplit() {
@@ -307,6 +303,7 @@ export default function AddTransaction() {
                             onChange={() => {
                                 setSplitBool(!splitBool);
                             }}>
+                            <AltRouteIcon />
                             Split
                         </ToggleButton>
                         <IconButton onClick={() => setAddNewTransaction(false)}><CloseIcon /></IconButton>
@@ -329,15 +326,15 @@ export default function AddTransaction() {
                                 :
                                 <Grid size={12}>
                                     <ToggleButtonGroup
-                                        color="success"
+                                        color={transactionType === 'income' ? 'success' : 'warning'}
                                         value={transactionType}
                                         fullWidth
                                         exclusive
                                         onChange={handleTypeChange}
                                         size='small'
                                     >
-                                        <ToggleButton value="income">Income</ToggleButton>
-                                        <ToggleButton value="expense">Expense</ToggleButton>
+                                        <ToggleButton value="income"><TrendingUpIcon sx={{ mr: 0.5 }} />Income</ToggleButton>
+                                        <ToggleButton value="expense"><TrendingDownIcon sx={{ mr: 0.5 }} />Expense</ToggleButton>
                                     </ToggleButtonGroup>
                                 </Grid>
                             }
@@ -474,7 +471,7 @@ export default function AddTransaction() {
                                                 />
                                             </Grid>
                                             <Grid size={1}>
-                                                <IconButton size='small' title='Allocate rest' onClick={() => allocateRest(x.recId)}><AttachMoneyIcon /></IconButton>
+                                                <IconButton size='small' title='Allocate rest' onClick={() => allocateRest(x.recId)}><ReadMoreOutlinedIcon /></IconButton>
                                             </Grid>
                                             <Grid size={1}>
                                                 <IconButton size='small' onClick={() => deleteSplitCat(x.recId)}><CloseIcon /></IconButton>
