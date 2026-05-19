@@ -16,6 +16,7 @@ import Avatar from '@mui/material/Avatar';
 import TextField from "@mui/material/TextField";
 import InputAdornment from '@mui/material/InputAdornment';
 import SearchIcon from '@mui/icons-material/Search';
+import { alpha } from '@mui/material/styles';
 
 const formatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -42,6 +43,7 @@ export default function TransactionsPage() {
         }
     }
     const categoryArray = useTableStore(s => s.categories)
+    const sectionsArray = useTableStore(s => s.sections)
     const setCurrentTransaction = useModalStore(s => s.setCurrentTransaction)
     const setOpenEditTransaction = useModalStore(s => s.setEditTransaction)
     const openTransaction = (trsID: string) => {
@@ -120,7 +122,15 @@ export default function TransactionsPage() {
                                                 variant='body1'>{row.title}</Typography>
                                             <Chip size='small'
                                                 label={categoryArray.find(x => x.recordID === row.categoryID)?.categoryName}
-                                                color='primary' />
+                                                sx={(theme) => {
+                                                    const category = categoryArray.find(x => x.recordID === row.categoryID)
+                                                    const section = sectionsArray.find(x => x.recordID === category?.sectionID)
+                                                    return {
+                                                        backgroundColor:
+                                                            section?.sectionType === 'expense' ? alpha(theme.palette.warning.light, 0.5) : alpha(theme.palette.success.light, 0.5)
+                                                    }
+                                                }}
+                                            />
                                         </Grid>
                                         <Grid size='auto' sx={{ textAlign: 'right' }}>
                                             <Typography style={{ overflow: "hidden", textOverflow: "ellipsis" }} display='inline'
@@ -128,12 +138,12 @@ export default function TransactionsPage() {
                                         </Grid>
                                     </Grid>
                                 </ListItemButton>
-                            </ListItem>
+                            </ListItem >
                         </>
                     ))}
                 </List>
             </Paper>
-        </Box> : null
+        </Box > : null
 
     return (
         <>
