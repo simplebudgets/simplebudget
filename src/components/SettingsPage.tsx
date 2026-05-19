@@ -38,6 +38,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useIsOffline } from "./extras/OfflineAlert";
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from "@mui/material/IconButton";
+import DialogActions from '@mui/material/DialogActions';
 
 export default function SettingsPage() {
     const setLoadingOpen = useGlobalStore(s => s.setMainLoading)
@@ -305,7 +306,7 @@ export default function SettingsPage() {
                 fullScreen={!bigger}
                 slotProps={{ paper: bigger ? dialogPaperStyles : undefined }}
             >
-                <Box sx={{ bgcolor: 'background.paper', height: '100%' }}>
+                <Box sx={{ bgcolor: 'background.paper', height: '100%' }} component='form' onSubmit={() => { copyUserID(); setQrOpen(false); }}>
                     <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         My User ID<IconButton onClick={() => setQrOpen(false)}><CloseIcon /></IconButton>
                     </DialogTitle>
@@ -314,14 +315,17 @@ export default function SettingsPage() {
                         <Typography variant='body2' color='text.secondary' sx={{ mt: 2, wordBreak: 'break-all' }}>
                             {currentUserDetails.recordID}
                         </Typography>
-                        <Button
-                            sx={{ mt: 1 }}
-                            size='small'
-                            startIcon={<ContentCopyIcon />}
-                            onClick={() => { copyUserID(); setQrOpen(false); }}
-                        >
-                            Copy ID
-                        </Button>
+                        <DialogActions>
+                            <Button
+                                sx={{ mt: 1 }}
+                                fullWidth
+                                variant='contained'
+                                type='submit'
+                                startIcon={<ContentCopyIcon />}
+                            >
+                                Copy to Clipboard
+                            </Button>
+                        </DialogActions>
                     </DialogContent>
                 </Box>
             </Dialog>

@@ -28,37 +28,37 @@ const DEFAULT_BUDGET_TEMPLATE: { sectionName: string; sectionType: string; categ
     {
         sectionName: 'Income',
         sectionType: 'income',
-        categories: ['Paycheck', 'Side Hustle', 'Other Income'],
+        categories: ['💼 Paycheck', 'Side Hustle', 'Other Income'],
     },
     {
         sectionName: 'Housing',
         sectionType: 'expense',
-        categories: ['Rent / Mortgage', 'Utilities', 'Internet', 'Home Maintenance'],
+        categories: ['🏠 Rent / Mortgage', '💧 Utilities', '🛜 Internet', '⚒️ Home Maintenance'],
     },
     {
         sectionName: 'Transportation',
         sectionType: 'expense',
-        categories: ['Gas', 'Car Insurance', 'Car Maintenance'],
+        categories: ['⛽ Gas', '💥 Car Insurance', '🔧 Car Maintenance'],
     },
     {
         sectionName: 'Food',
         sectionType: 'expense',
-        categories: ['Groceries', 'Restaurants'],
+        categories: ['🛒 Groceries', '🍝 Restaurants'],
     },
     {
         sectionName: 'Personal',
         sectionType: 'expense',
-        categories: ['Clothing', 'Entertainment', 'Subscriptions', 'Health & Fitness', 'Fun Money']
+        categories: ['👚 Clothing', '📺 Entertainment', '📺 Subscriptions', '🏋🏼 Health & Fitness', '🕺🏼 Fun Money']
     },
     {
         sectionName: 'Savings',
         sectionType: 'expense',
-        categories: ['Emergency Fund', 'Retirement', 'Investments'],
+        categories: ['🏦 Emergency Fund', '📚 Investments'],
     },
     {
         sectionName: 'Lifestyle',
         sectionType: 'expense',
-        categories: ['Pet Care', 'Miscellaneous', 'Giving'],
+        categories: ['🐕‍🦺 Pet Care', '❔ Miscellaneous', '💛 Giving'],
     },
 ];
 
