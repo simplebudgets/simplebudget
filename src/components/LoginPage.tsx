@@ -17,7 +17,7 @@ import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import { supabase, isCustomSupabaseConfig } from "../lib/supabase";
+import { supabase, isCustomSupabaseConfig, isSelfHostedConfig } from "../lib/supabase";
 import Backdrop from '@mui/material/Backdrop';
 import CircularProgress from '@mui/material/CircularProgress';
 import logo from "../logo.png";
@@ -178,6 +178,15 @@ export default function LoginPage() {
                             </Grid>
                             <Grid size={12}>
                                 <Button fullWidth variant='contained' disabled={!validateForm()} type='submit' sx={{ mt: 1 }}>Sign in</Button>
+                            </Grid>
+                            <Grid size={12}>
+                                {isCustomSupabaseConfig() || isSelfHostedConfig() ? (
+                                    <Typography variant='body2' color='text.secondary'>
+                                        Forgot your password? Contact your administrator.
+                                    </Typography>
+                                ) : (
+                                    <Button size='small' onClick={() => navigate('/forgot-password', { replace: true })}>Forgot password?</Button>
+                                )}
                             </Grid>
                             <Grid size={12}>
                                 <Typography display='inline' variant='body2'>Don't have an account? </Typography>

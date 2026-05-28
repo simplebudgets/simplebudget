@@ -20,6 +20,8 @@ import SettingsPage from "./components/SettingsPage";
 const LoginPage = lazy(() => import("./components/LoginPage"));
 const SignUpPage = lazy(() => import("./components/SignUpPage"));
 const SupabaseConfigPage = lazy(() => import("./components/SupabaseConfigPage"));
+const ForgotPasswordPage = lazy(() => import("./components/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./components/ResetPasswordPage"));
 const ErrorPage = lazy(() => import("./components/ErrorPage"));
 
 // Register service worker with update prompt
@@ -69,6 +71,8 @@ root.render(
                     </Route>
                     <Route path='login' element={<LoginPage />} />
                     <Route path='signup' element={<SignUpPage />} />
+                    <Route path='forgot-password' element={<ForgotPasswordPage />} />
+                    <Route path='reset-password' element={<ResetPasswordPage />} />
                     <Route path='backend-config' element={<SupabaseConfigPage />} />
                 </Routes>
             </Suspense>
